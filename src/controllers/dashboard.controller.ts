@@ -1,5 +1,8 @@
 import { Request, Response } from "express";
-import { prisma } from "../utils/prisma.js";
+
+import Product from "../models/product.model.js";
+import Order from "../models/order.model.js";
+import StockMovement from "../models/stockMovement.model.js";
 
 export const getDashboard = async (req: Request, res: Response) => {
   try {
@@ -11,32 +14,53 @@ export const getDashboard = async (req: Request, res: Response) => {
       recentMovements,
       lowStockProducts,
     ] = await Promise.all([
-      prisma.product.count(),
-      prisma.order.count(),
-      prisma.order.count({ where: { status: "PENDING" } }),
-      prisma.order.count({ where: { status: "CANCELLED" } }),
-      prisma.stockMovement.findMany({
-        orderBy: { createdAt: "desc" },
-        take: 5,
-        include: { product: { select: { name: true, sku: true } } },
+      Product.count(),
+      Order.count(),
+      Order.count({ where: { status: "PENDING" } }),
+      Order.count({ where: { status: "CANCELLED" } }),
+
+      StockMovement.findAll({
+        order: [["createdAt", "DESC"]],
+        limit: 5,
+        include: [
+          {
+            model: Product,
+            as: "product",
+            attributes: ["name", "sku"],
+          },
+        ],
       }),
-      prisma.product.findMany({
-        where: { stockQuantity: { lte: 10 } },
-        orderBy: { stockQuantity: "asc" },
-        select: { id: true, name: true, sku: true, stockQuantity: true },
+
+      Product.findAll({
+        where: {
+          stockQuantity: {
+            lte: 10,
+          },
+        },
+        order: [["stockQuantity", "ASC"]],
+        attributes: ["id", "name", "sku", "stockQuantity"],
       }),
     ]);
 
-    res.json({
+    return res.json({
       success: true,
       data: {
-        stats: { totalProducts, totalOrders, pendingOrders, cancelledOrders },
+        stats: {
+          totalProducts,
+          totalOrders,
+          pendingOrders,
+          cancelledOrders,
+        },
         lowStockProducts,
         recentMovements,
       },
     });
   } catch (error) {
     console.error("getDashboard error:", error);
-    res.status(500).json({ success: false, message: "Something went wrong" });
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong",
+    });
   }
 };
