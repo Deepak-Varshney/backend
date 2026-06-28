@@ -1,0 +1,100 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+
+enum OrderStatus {
+  PENDING
+  CANCELLED
+}
+
+enum MovementType {
+  STOCK_IN
+  ORDER_PLACED
+  ORDER_CANCELLED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+
+  orders       Order[]
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Product {
+  id            String   @id @default(cuid())
+  sku           String   @unique
+  name          String
+  description   String?
+  price         Decimal  @db.Decimal(10, 2)
+
+  stockQuantity Int      @default(0)
+
+  orderItems    OrderItem[]
+  movements     StockMovement[]
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Order {
+  id          String      @id @default(cuid())
+
+  userId      String
+  user        User        @relation(fields: [userId], references: [id])
+
+  status      OrderStatus @default(PENDING)
+
+  totalAmount Decimal     @db.Decimal(10, 2)
+
+  items       OrderItem[]
+  movements   StockMovement[]
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model OrderItem {
+  id         String   @id @default(cuid())
+
+  orderId    String
+  order      Order    @relation(fields: [orderId], references: [id])
+
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id])
+
+  quantity   Int
+  unitPrice  Decimal  @db.Decimal(10, 2)
+
+  createdAt  DateTime @default(now())
+}
+
+model StockMovement {
+  id               String       @id @default(cuid())
+
+  productId        String
+  product          Product      @relation(fields: [productId], references: [id])
+
+  orderId          String?
+  order            Order?       @relation(fields: [orderId], references: [id])
+
+  movementType     MovementType
+
+  quantityChange   Int
+
+  beforeQuantity   Int
+  afterQuantity    Int
+
+  notes            String?
+
+  createdAt        DateTime @default(now())
+}
